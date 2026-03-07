@@ -1,8 +1,15 @@
 import { PrismaClient } from '@prisma/client';
+import { PrismaPg } from '@prisma/adapter-pg';
+import pg from 'pg';
 import bcrypt from 'bcryptjs';
 import readline from 'readline';
+import 'dotenv/config';
 
-const prisma = new PrismaClient();
+const connectionString = `${process.env.DATABASE_URL}`;
+const pool = new pg.Pool({ connectionString });
+const adapter = new PrismaPg(pool);
+
+const prisma = new PrismaClient({ adapter });
 
 const rl = readline.createInterface({
     input: process.stdin,
@@ -11,6 +18,11 @@ const rl = readline.createInterface({
 
 async function main() {
     console.log('--- Manual User Creation ---');
+
+    if (!process.env.DATABASE_URL) {
+        console.error('Error: DATABASE_URL not found in environment variables.');
+        process.exit(1);
+    }
 
     const email = await new Promise<string>((resolve) => {
         rl.question('Enter email: ', resolve);
@@ -44,6 +56,7 @@ async function main() {
         }
     } finally {
         await prisma.$disconnect();
+        await pool.end();
         rl.close();
     }
 }

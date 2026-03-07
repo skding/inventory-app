@@ -136,15 +136,18 @@ This means Postgres rejected the login. Follow these steps to verify everything:
     (It will prompt for password). If this fails, the issue is definitely the password or Postgres permissions.
 
 ### Error: `Challenge failed for domain (SSL/Certbot)`
-This happens if you are using a "Domain Redirect" or "Forwarding" service. Certbot cannot verify your server through a redirect.
+This happens if Certbot cannot verify that your server owns the domain.
 
-**Fix**: 
-1.  **Delete the Redirect**: Go to your domain provider and remove the redirect to port 3000.
-2.  **Add an A Record**: Create an **A Record** pointing to your IP `138.2.94.149`.
-3.  **The "Magic" of Nginx**: Nginx can host **many websites** on Port 80 at the same time. It checks the `server_name` to decide where to send the traffic. 
-    *   App 1 (`inventory.cloverdigital.com.my`) -> Proxies to Port 3011
-    *   App 2 (another domain) -> Proxies to Port 3000
-    This way, you don't need to type `:3000` in the URL, and SSL (HTTPS) will work perfectly.
+**CRITICAL CHECK: IP Mismatch**:
+Look at your Certbot error message. If the IP address listed there (e.g., `162.241.252.110`) does NOT match your Oracle Cloud IP (`138.2.94.149`), Certbot will fail.
+
+**Fix**:
+1.  **Verify DNS Resolution**: Run this on your computer or server:
+    ```bash
+    nslookup inventory.cloverdigital.com.my
+    ```
+2.  **Wait for Propagation**: If the result is NOT `138.2.94.149`, your DNS change is haven't finished yet. It can take 5 minutes to 24 hours.
+3.  **Check A Record**: Go to your domain provider and ensure there is an **A Record** (not a redirect) pointing exactly to `138.2.94.149`.
 
 ### Error: `Login succeeds but redirects back to Login page (Login Loop)`
 This happens if NextAuth cannot save the session cookie because the server thinks it is on a different URL than the browser.

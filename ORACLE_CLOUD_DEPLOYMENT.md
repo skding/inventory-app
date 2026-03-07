@@ -98,6 +98,14 @@ This happens if `node_modules` are missing or `npm install` was not successful.
 npm install
 ```
 
+### Error: `EACCES: permission denied, mkdir '/opt/inventory-app/node_modules'`
+This happens because the `/opt` directory is owned by `root`.
+**Fix**: Give the `ubuntu` user ownership of the project folder:
+```bash
+sudo chown -R ubuntu:ubuntu /opt/inventory-app
+```
+Then run `npm install` again.
+
 ### Error: `PrismaClientInitializationError`
 This happens if the database is not accessible.
 **Fix**: Check your `.env` file and ensure the `DATABASE_URL` is correct and the Postgres service is running (`sudo systemctl status postgresql`).

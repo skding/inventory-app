@@ -53,23 +53,16 @@ npx tsx scripts/create-user.ts
 ## 5. Enable HTTPS (Nginx + Certbot)
 **CRITICAL**: In your Nginx config, I noticed a typo: `cloverditital` (with two 't's) instead of **`cloverdigital`**. This will cause Nginx to ignore your requests.
 
-### The Perfect Nginx Config
-Replace everything in `/etc/nginx/sites-available/inventory` with this:
+### Step 5: Configure Nginx (Starter Config)
+Since you don't have the SSL lines yet, we start with a **Port 80 only** config. Certbot will then "upgrade" this file for you automatically.
+
+1.  Open the config: `sudo nano /etc/nginx/sites-available/inventory`
+2.  Delete everything and paste this **Starter Template**:
 
 ```nginx
 server {
     listen 80;
     server_name inventory.cloverdigital.com.my;
-    return 301 https://$host$request_uri; # Redirect all HTTP to HTTPS
-}
-
-server {
-    listen 443 ssl;
-    server_name inventory.cloverdigital.com.my;
-
-    # SSL certificates (Certbot adds these next two lines automatically)
-    # include /etc/letsencrypt/options-ssl-nginx.conf; 
-    # ssl_dhparam /etc/letsencrypt/ssl-dhparams.pem;
 
     location / {
         proxy_pass http://localhost:3011;
@@ -85,6 +78,19 @@ server {
     }
 }
 ```
+
+3.  Verify and Start:
+    ```bash
+    sudo nginx -t
+    sudo systemctl restart nginx
+    ```
+
+### Step 5b: Enable HTTPS with Certbot
+Now that Nginx is running correctly on Port 80, run Certbot to add the SSL lines for you:
+```bash
+sudo certbot --nginx -d inventory.cloverdigital.com.my
+```
+*(Certbot will now automatically find your "Starter Config" and add the `listen 443 ssl` block and certificate paths correctly).*
 
 **Restart Nginx after editing**: `sudo systemctl restart nginx`
 

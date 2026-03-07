@@ -51,32 +51,44 @@ npx tsx scripts/create-user.ts
 ```
 
 ## 5. Enable HTTPS (Nginx + Certbot)
-**CRITICAL**: If you used a "Domain Redirect" or "Forwarding" service in your domain dashboard, **DELETE IT**. It will prevent HTTPS from working. You must use an **A Record** pointing to your IP `138.2.94.149`.
+**CRITICAL**: In your Nginx config, I noticed a typo: `cloverditital` (with two 't's) instead of **`cloverdigital`**. This will cause Nginx to ignore your requests.
 
-Nginx is a "Reverse Proxy". It can listen on Port 80 and 443 for **many different websites** at the same time. It uses the `server_name` to know which app to show.
+### The Perfect Nginx Config
+Replace everything in `/etc/nginx/sites-available/inventory` with this:
 
-1.  **Configure Nginx**: Create `/etc/nginx/sites-available/inventory`:
-    ```nginx
-    server {
-        listen 80;
-        server_name inventory.cloverdigital.com.my; # Nginx uses this to stay separate from other apps
+```nginx
+server {
+    listen 80;
+    server_name inventory.cloverdigital.com.my;
+    return 301 https://$host$request_uri; # Redirect all HTTP to HTTPS
+}
 
-        location / {
-            proxy_pass http://localhost:3011; # Forward to the app
-            proxy_http_version 1.1;
-            proxy_set_header Upgrade $http_upgrade;
-            proxy_set_header Connection 'upgrade';
-            proxy_set_header Host $host;
-            proxy_set_header X-Real-IP $remote_addr;
-            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-            proxy_set_header X-Forwarded-Proto $scheme;
-            proxy_set_header X-Forwarded-Host $host;
-            proxy_cache_bypass $http_upgrade;
-        }
+server {
+    listen 443 ssl;
+    server_name inventory.cloverdigital.com.my;
+
+    # SSL certificates (Certbot adds these next two lines automatically)
+    # include /etc/letsencrypt/options-ssl-nginx.conf; 
+    # ssl_dhparam /etc/letsencrypt/ssl-dhparams.pem;
+
+    location / {
+        proxy_pass http://localhost:3011;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header X-Forwarded-Host $host;
+        proxy_cache_bypass $http_upgrade;
     }
-    ```
+}
+```
 
-2.  **Why use Port 80?**: Even if another app is using Port 80, Nginx will see the name `inventory.cloverdigital.com.my` and send it to your app. This allows Certbot to verify your domain.
+**Restart Nginx after editing**: `sudo systemctl restart nginx`
+
+2.  **Why use Port 80?**: Even if another app is using Port 80, Nginx will see the name `inventory.cloverdigital.com.my` and send it to your app.
 
 3.  **Enable Configuration**:
     ```bash

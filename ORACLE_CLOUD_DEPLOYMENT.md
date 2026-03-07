@@ -179,21 +179,39 @@ This means the server was reached, but the IP address in the error doesn't match
 ...
 
 ### Error: `I see "Index of /" instead of the app`
-This usually means Nginx's "Default" config is overriding your settings.
+This means Nginx is serving a folder instead of the app. Follow this **exact** sequence to fix it:
 
-**Fix**:
-1.  **Remove the Default config**:
-    ```bash
-    sudo rm /etc/nginx/sites-enabled/default
-    ```
-2.  **Verify your config logic**: Run this to check for errors:
-    ```bash
-    sudo nginx -t
-    ```
-3.  **Restart Nginx**:
-    ```bash
-    sudo systemctl restart nginx
-    ```
+1.  **Check for conflicts**: run `ls -l /etc/nginx/sites-enabled/`.
+    *   If you see `default`, delete it: `sudo rm /etc/nginx/sites-enabled/default`.
+    *   If you see **more than one file**, delete the ones you don't need.
+
+2.  **Verify Domain Typo**: Check your config: `grep "server_name" /etc/nginx/sites-available/inventory`.
+    *   It MUST be `cloverdigital` (not `cloverditital`).
+
+3.  **The "Clean Slate" Config**: If the above fails, use this **all-in-one** config (Replace EVERYTHING in `/etc/nginx/sites-available/inventory`):
+```nginx
+server {
+    listen 80 default_server;
+    listen [::]:80 default_server;
+    server_name inventory.cloverdigital.com.my;
+
+    location / {
+        proxy_pass http://localhost:3011;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header X-Forwarded-Host $host;
+        proxy_cache_bypass $http_upgrade;
+    }
+}
+```
+*(After pasting this, run `sudo nginx -t` and `sudo systemctl restart nginx`. Then run Certbot again if you want HTTPS).*
+
+4.  **Check Active Config**: Run `sudo nginx -T` and look for any line that says `root /var/www/html`. If you see it, that's what's causing the "Index" page.
 
 ### How to remove Port 80 Redirects
 If you set up a redirect from Port 80 to 3000 (manually or via a script), it will block Nginx.

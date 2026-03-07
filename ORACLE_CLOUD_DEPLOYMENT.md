@@ -107,6 +107,16 @@ sudo chown -R ubuntu:ubuntu /opt/inventory-app
 ```
 Then run `npm install` again.
 
+### Error: `Authentication failed against the database server (P1000)`
+This happens if the username or password in `.env` does not match your PostgreSQL setup.
+**Fix**: Reset your database user password to match your `.env` file:
+1.  Open Postgres terminal: `sudo -u postgres psql`.
+2.  Run this command (replace `your_password_here` with the exact password from your `.env`):
+    ```sql
+    ALTER USER inventory_user WITH PASSWORD 'your_password_here';
+    ```
+3.  Type `\q` to exit, then try the script again.
+
 ### Error: `PrismaClientInitializationError`
 This happens if the database is not accessible.
 **Fix**: Check your `.env` file and ensure the `DATABASE_URL` is correct and the Postgres service is running (`sudo systemctl status postgresql`).

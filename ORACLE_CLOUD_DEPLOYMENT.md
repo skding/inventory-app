@@ -67,6 +67,10 @@ Nginx is a "Reverse Proxy". It can listen on Port 80 and 443 for **many differen
             proxy_set_header Upgrade $http_upgrade;
             proxy_set_header Connection 'upgrade';
             proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+            proxy_set_header X-Forwarded-Host $host;
             proxy_cache_bypass $http_upgrade;
         }
     }
@@ -141,6 +145,14 @@ This happens if you are using a "Domain Redirect" or "Forwarding" service. Certb
     *   App 1 (`inventory.cloverdigital.com.my`) -> Proxies to Port 3011
     *   App 2 (another domain) -> Proxies to Port 3000
     This way, you don't need to type `:3000` in the URL, and SSL (HTTPS) will work perfectly.
+
+### Error: `Login succeeds but redirects back to Login page (Login Loop)`
+This happens if NextAuth cannot save the session cookie because the "Proxy Headers" are missing.
+
+**Fix**:
+1.  **Check Nginx**: Ensure your `/etc/nginx/sites-available/inventory` includes the `X-Forwarded-Proto` and `X-Forwarded-Host` headers (see Step 5).
+2.  **Restart Nginx**: `sudo systemctl restart nginx`.
+3.  **NEXTAUTH_URL**: Ensure your `.env` doesn't have `https://` if you are currently using `http://`. NextAuth disables cookies if the protocol doesn't match.
 
 ### Error: `Port is open in OCI console but cannot connect`
 Oracle Cloud Ubuntu instances have a secondary firewall (`iptables`) that blocks ports even if the Security List is open.

@@ -89,7 +89,20 @@ sudo apt install certbot python3-certbot-nginx -y
 sudo certbot --nginx -d yourdomain.com
 ```
 
-## 7. Local Testing
+## 7. Troubleshooting
+
+### Error: `sh: 1: next: not found`
+This happens if `node_modules` are missing or `npm install` was not successful.
+**Fix**: Ensure you are in the project folder and run:
+```bash
+npm install
+```
+
+### Error: `PrismaClientInitializationError`
+This happens if the database is not accessible.
+**Fix**: Check your `.env` file and ensure the `DATABASE_URL` is correct and the Postgres service is running (`sudo systemctl status postgresql`).
+
+## 8. Local Testing
 The app is now configured to run on port **3011** internally. You can test it locally with:
 ```bash
 npm run dev

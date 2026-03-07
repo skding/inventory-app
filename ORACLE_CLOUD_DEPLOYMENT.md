@@ -39,9 +39,10 @@ sudo -u postgres psql
     NEXTAUTH_URL="https://yourdomain.com"
     ```
 4.  Generate Prisma Client: `npx prisma generate`.
-5.  Build the app: `npm run build`.
-6.  Install PM2: `npm install -g pm2`.
-7.  Start the app: `pm2 start npm --name "inventory-app" -- start`.
+5.  Push Schema to DB: `npx prisma db push`.
+6.  Build the app: `npm run build`.
+7.  Install PM2: `npm install -g pm2`.
+8.  Start the app: `pm2 start npm --name "inventory-app" -- start`.
 
 ## 4. Manual User Creation
 Run the standalone script to create your first account:
@@ -131,6 +132,13 @@ This means Postgres rejected the login. Follow these steps to verify everything:
     psql -h localhost -U inventory_user -d inventory_db
     ```
     (It will prompt for password). If this fails, the issue is definitely the password or Postgres permissions.
+
+### Error: `The table public.users does not exist in the current database (P2021)`
+This happens if your database connection is successful, but the tables haven't been created yet.
+**Fix**: Run this command to push your schema to the cloud database:
+```bash
+npx prisma db push
+```
 
 ### Error: `PrismaClientInitializationError`
 This happens if the database is not accessible.

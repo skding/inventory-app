@@ -160,6 +160,23 @@ This happens if NextAuth cannot save the session cookie because the server think
 3.  **Check Nginx Headers**: Ensure `X-Forwarded-Host` and `X-Forwarded-Proto` are present in your Nginx config.
 4.  **Restart App**: `pm2 restart all` to apply changes.
 
+### How to remove Port 80 Redirects
+If you set up a redirect from Port 80 to 3000 (manually or via a script), it will block Nginx.
+
+**1. Check and Remove `iptables` NAT rules**:
+If you used `iptables` for forwarding, run:
+```bash
+# View list of redirects
+sudo iptables -t nat -L --line-numbers
+
+# Delete the redirect rule (replace <LINE_NUMBER> with the actual number from the list)
+sudo iptables -t nat -D PREROUTING <LINE_NUMBER>
+sudo netfilter-persistent save
+```
+
+**2. Domain-Level Redirects**:
+Log in to your domain provider (e.g., GoDaddy, Namecheap) and ensure "Domain Forwarding" or "Redirect" is DISABLED. Use an **A Record** pointing to your IP instead.
+
 ### Error: `Port is open in OCI console but cannot connect`
 Oracle Cloud Ubuntu instances have a secondary firewall (`iptables`) that blocks ports even if the Security List is open.
 **Fix**: Run these commands on your server to allow port 3010:

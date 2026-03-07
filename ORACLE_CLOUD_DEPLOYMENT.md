@@ -160,19 +160,28 @@ Once Certbot is successful, your app is now secure! You MUST update your configu
 This means the server was reached, but the IP address in the error doesn't match your cloud IP.
 ...
 
-### Error: `Login succeeds but redirects back to Login page (Login Loop)`
-This happens if NextAuth cannot save the session cookie because the server thinks it is on a different URL than the browser.
+### Error: `I see "Index of /" instead of the app`
+This happens if Certbot created a new SSL server block but didn't copy your `proxy_pass` settings into it.
 
 **Fix**:
-1.  **Delete `.env.local`**: Ensure there is NO `.env.local` file on your server. It will override your `.env` and break things.
-    ```bash
-    rm .env.local
+1.  Open your Nginx config: `sudo nano /etc/nginx/sites-available/inventory`.
+2.  Look for the `server { listen 443 ssl; ... }` block (added by Certbot).
+3.  Ensure it has the **exact same `location /` block** as your port 80 config:
+    ```nginx
+    location / {
+        proxy_pass http://localhost:3011;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header X-Forwarded-Host $host;
+        proxy_cache_bypass $http_upgrade;
+    }
     ```
-2.  **Verify `.env` Port**: Your `NEXTAUTH_URL` must match **exactly** what you type in the browser.
-    *   If you use `http://138.2.94.149:3010`, your `.env` **must** have `:3010`.
-    *   If you use `:3011` in `.env` but access via `:3010` (Nginx), login will fail.
-3.  **Check Nginx Headers**: Ensure `X-Forwarded-Host` and `X-Forwarded-Proto` are present in your Nginx config.
-4.  **Restart App**: `pm2 restart all` to apply changes.
+4.  Save and restart: `sudo systemctl restart nginx`.
 
 ### How to remove Port 80 Redirects
 If you set up a redirect from Port 80 to 3000 (manually or via a script), it will block Nginx.

@@ -51,22 +51,18 @@ npx tsx scripts/create-user.ts
 ```
 
 ## 5. Enable HTTPS (Nginx + Certbot)
-Since you are using Port **3010** externally (because Port 80 is taken), Nginx will listen on 3010 and forward traffic to the app running internally on 3011.
+**CRITICAL**: If you used a "Domain Redirect" or "Forwarding" service in your domain dashboard, **DELETE IT**. It will prevent HTTPS from working. You must use an **A Record** pointing to your IP `138.2.94.149`.
 
-1.  **Install Nginx**:
-    ```bash
-    sudo apt update
-    sudo apt install nginx -y
-    ```
+Nginx is a "Reverse Proxy". It can listen on Port 80 and 443 for **many different websites** at the same time. It uses the `server_name` to know which app to show.
 
-2.  **Configure Nginx**: Create `/etc/nginx/sites-available/inventory`:
+1.  **Configure Nginx**: Create `/etc/nginx/sites-available/inventory`:
     ```nginx
     server {
-        listen 3010; # External port (you will type http://IP:3010)
-        server_name _; 
+        listen 80;
+        server_name inventory.cloverdigital.com.my; # Nginx uses this to stay separate from other apps
 
         location / {
-            proxy_pass http://localhost:3011; # Internal app port
+            proxy_pass http://localhost:3011; # Forward to the app
             proxy_http_version 1.1;
             proxy_set_header Upgrade $http_upgrade;
             proxy_set_header Connection 'upgrade';
@@ -75,6 +71,8 @@ Since you are using Port **3010** externally (because Port 80 is taken), Nginx w
         }
     }
     ```
+
+2.  **Why use Port 80?**: Even if another app is using Port 80, Nginx will see the name `inventory.cloverdigital.com.my` and send it to your app. This allows Certbot to verify your domain.
 
 3.  **Enable Configuration**:
     ```bash
@@ -134,15 +132,15 @@ This means Postgres rejected the login. Follow these steps to verify everything:
     (It will prompt for password). If this fails, the issue is definitely the password or Postgres permissions.
 
 ### Error: `Challenge failed for domain (SSL/Certbot)`
-This happens if Certbot cannot verify that your server owns the domain.
-**Fixes**:
-1.  **DNS Check**: You MUST use an **A Record** (pointing to `138.2.94.149`) in your domain settings. A **"Redirect"** or "Forwarding" service will NOT work for SSL.
-2.  **Port 80 Requirement**: Nginx must be listening on **Port 80** for your domain during the challenge. Ensure Port 80 is open in OCI Security Lists and OCI Firewall:
-    ```bash
-    sudo iptables -I INPUT 6 -m state --state NEW -p tcp --dport 80 -j ACCEPT
-    sudo netfilter-persistent save
-    ```
-3.  **Nginx Config**: Ensure your `sites-available/inventory` file has `server_name inventory.cloverdigital.com.my;` and `listen 80;`.
+This happens if you are using a "Domain Redirect" or "Forwarding" service. Certbot cannot verify your server through a redirect.
+
+**Fix**: 
+1.  **Delete the Redirect**: Go to your domain provider and remove the redirect to port 3000.
+2.  **Add an A Record**: Create an **A Record** pointing to your IP `138.2.94.149`.
+3.  **The "Magic" of Nginx**: Nginx can host **many websites** on Port 80 at the same time. It checks the `server_name` to decide where to send the traffic. 
+    *   App 1 (`inventory.cloverdigital.com.my`) -> Proxies to Port 3011
+    *   App 2 (another domain) -> Proxies to Port 3000
+    This way, you don't need to type `:3000` in the URL, and SSL (HTTPS) will work perfectly.
 
 ### Error: `Port is open in OCI console but cannot connect`
 Oracle Cloud Ubuntu instances have a secondary firewall (`iptables`) that blocks ports even if the Security List is open.

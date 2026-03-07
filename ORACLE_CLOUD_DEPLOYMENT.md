@@ -147,12 +147,18 @@ This happens if you are using a "Domain Redirect" or "Forwarding" service. Certb
     This way, you don't need to type `:3000` in the URL, and SSL (HTTPS) will work perfectly.
 
 ### Error: `Login succeeds but redirects back to Login page (Login Loop)`
-This happens if NextAuth cannot save the session cookie because the "Proxy Headers" are missing.
+This happens if NextAuth cannot save the session cookie because the server thinks it is on a different URL than the browser.
 
 **Fix**:
-1.  **Check Nginx**: Ensure your `/etc/nginx/sites-available/inventory` includes the `X-Forwarded-Proto` and `X-Forwarded-Host` headers (see Step 5).
-2.  **Restart Nginx**: `sudo systemctl restart nginx`.
-3.  **NEXTAUTH_URL**: Ensure your `.env` doesn't have `https://` if you are currently using `http://`. NextAuth disables cookies if the protocol doesn't match.
+1.  **Delete `.env.local`**: Ensure there is NO `.env.local` file on your server. It will override your `.env` and break things.
+    ```bash
+    rm .env.local
+    ```
+2.  **Verify `.env` Port**: Your `NEXTAUTH_URL` must match **exactly** what you type in the browser.
+    *   If you use `http://138.2.94.149:3010`, your `.env` **must** have `:3010`.
+    *   If you use `:3011` in `.env` but access via `:3010` (Nginx), login will fail.
+3.  **Check Nginx Headers**: Ensure `X-Forwarded-Host` and `X-Forwarded-Proto` are present in your Nginx config.
+4.  **Restart App**: `pm2 restart all` to apply changes.
 
 ### Error: `Port is open in OCI console but cannot connect`
 Oracle Cloud Ubuntu instances have a secondary firewall (`iptables`) that blocks ports even if the Security List is open.

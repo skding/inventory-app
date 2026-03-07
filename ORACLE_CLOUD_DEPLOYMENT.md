@@ -135,19 +135,22 @@ This means Postgres rejected the login. Follow these steps to verify everything:
     ```
     (It will prompt for password). If this fails, the issue is definitely the password or Postgres permissions.
 
-### Error: `Challenge failed for domain (SSL/Certbot)`
-This happens if Certbot cannot verify that your server owns the domain.
-
-**CRITICAL CHECK: IP Mismatch**:
-Look at your Certbot error message. If the IP address listed there (e.g., `162.241.252.110`) does NOT match your Oracle Cloud IP (`138.2.94.149`), Certbot will fail.
+### Error: `Challenge failed for domain (SSL/Certbot)` - "connection" or "Error getting validation data"
+This means your IP is correct, but your server is blocking Port 80. Certbot **must** be able to reach your server on Port 80 to verify the domain.
 
 **Fix**:
-1.  **Verify DNS Resolution**: Run this on your computer or server:
+1.  **OCI Web Console**: Go to Networking -> Virtual Cloud Networks -> [Your VCN] -> Security Lists. Ensure there is an "Ingress Rule" for **Port 80** and **Port 443**.
+2.  **OS Firewall (iptables)**: Run these commands to open Port 80 and 443 on the server:
     ```bash
-    nslookup inventory.cloverdigital.com.my
+    sudo iptables -I INPUT 6 -m state --state NEW -p tcp --dport 80 -j ACCEPT
+    sudo iptables -I INPUT 6 -m state --state NEW -p tcp --dport 443 -j ACCEPT
+    sudo netfilter-persistent save
     ```
-2.  **Wait for Propagation**: If the result is NOT `138.2.94.149`, your DNS change is haven't finished yet. It can take 5 minutes to 24 hours.
-3.  **Check A Record**: Go to your domain provider and ensure there is an **A Record** (not a redirect) pointing exactly to `138.2.94.149`.
+3.  **Confirm A Record**: You **must** have an **A Record** pointing to `138.2.94.149`. Do not delete it.
+
+### Error: `Challenge failed for domain (SSL/Certbot)` - "unauthorized" or "404"
+This means the server was reached, but the IP address in the error doesn't match your cloud IP.
+...
 
 ### Error: `Login succeeds but redirects back to Login page (Login Loop)`
 This happens if NextAuth cannot save the session cookie because the server thinks it is on a different URL than the browser.

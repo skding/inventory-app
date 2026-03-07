@@ -38,9 +38,10 @@ sudo -u postgres psql
     NEXTAUTH_SECRET="your_secret_here"
     NEXTAUTH_URL="https://yourdomain.com"
     ```
-4.  Build the app: `npm run build`.
-5.  Install PM2: `npm install -g pm2`.
-6.  Start the app: `pm2 start npm --name "inventory-app" -- start`.
+4.  Generate Prisma Client: `npx prisma generate`.
+5.  Build the app: `npm run build`.
+6.  Install PM2: `npm install -g pm2`.
+7.  Start the app: `pm2 start npm --name "inventory-app" -- start`.
 
 ## 4. Manual User Creation
 Run the standalone script to create your first account:

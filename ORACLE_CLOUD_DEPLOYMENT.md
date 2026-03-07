@@ -133,6 +133,20 @@ This means Postgres rejected the login. Follow these steps to verify everything:
     ```
     (It will prompt for password). If this fails, the issue is definitely the password or Postgres permissions.
 
+### Error: `Port is open in OCI console but cannot connect`
+Oracle Cloud Ubuntu instances have a secondary firewall (`iptables`) that blocks ports even if the Security List is open.
+**Fix**: Run these commands on your server to allow port 3010:
+```bash
+sudo iptables -I INPUT 6 -m state --state NEW -p tcp --dport 3010 -j ACCEPT
+sudo netfilter-persistent save
+```
+
+### Important: `NEXTAUTH_URL` Mismatch
+Your `NEXTAUTH_URL` must match **exactly** what you type in your browser.
+*   If you access via `http://138.2.94.149:3010`, your `.env` must be:
+    `NEXTAUTH_URL="http://138.2.94.149:3010"`
+*   Note: Even though the app runs on **3011** internally, Nginx shows it to you on **3010**. NextAuth needs to know the **external** port.
+
 ### Error: `The table public.users does not exist in the current database (P2021)`
 This happens if your database connection is successful, but the tables haven't been created yet.
 **Fix**: Run this command to push your schema to the cloud database:

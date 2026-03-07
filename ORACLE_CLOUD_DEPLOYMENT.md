@@ -133,6 +133,17 @@ This means Postgres rejected the login. Follow these steps to verify everything:
     ```
     (It will prompt for password). If this fails, the issue is definitely the password or Postgres permissions.
 
+### Error: `Challenge failed for domain (SSL/Certbot)`
+This happens if Certbot cannot verify that your server owns the domain.
+**Fixes**:
+1.  **DNS Check**: You MUST use an **A Record** (pointing to `138.2.94.149`) in your domain settings. A **"Redirect"** or "Forwarding" service will NOT work for SSL.
+2.  **Port 80 Requirement**: Nginx must be listening on **Port 80** for your domain during the challenge. Ensure Port 80 is open in OCI Security Lists and OCI Firewall:
+    ```bash
+    sudo iptables -I INPUT 6 -m state --state NEW -p tcp --dport 80 -j ACCEPT
+    sudo netfilter-persistent save
+    ```
+3.  **Nginx Config**: Ensure your `sites-available/inventory` file has `server_name inventory.cloverdigital.com.my;` and `listen 80;`.
+
 ### Error: `Port is open in OCI console but cannot connect`
 Oracle Cloud Ubuntu instances have a secondary firewall (`iptables`) that blocks ports even if the Security List is open.
 **Fix**: Run these commands on your server to allow port 3010:

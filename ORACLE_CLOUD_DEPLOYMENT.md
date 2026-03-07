@@ -108,14 +108,29 @@ sudo chown -R ubuntu:ubuntu /opt/inventory-app
 Then run `npm install` again.
 
 ### Error: `Authentication failed against the database server (P1000)`
-This happens if the username or password in `.env` does not match your PostgreSQL setup.
-**Fix**: Reset your database user password to match your `.env` file:
-1.  Open Postgres terminal: `sudo -u postgres psql`.
-2.  Run this command (replace `your_password_here` with the exact password from your `.env`):
-    ```sql
-    ALTER USER inventory_user WITH PASSWORD 'your_password_here';
+This means Postgres rejected the login. Follow these steps to verify everything:
+
+1.  **Check the User**: Ensure the user `inventory_user` actually exists:
+    ```bash
+    sudo -u postgres psql -c "\du"
     ```
-3.  Type `\q` to exit, then try the script again.
+    If it's missing, create it: `sudo -u postgres psql -c "CREATE USER inventory_user WITH PASSWORD 'your_password';"`
+
+2.  **Check the Database**: Ensure `inventory_db` exists:
+    ```bash
+    sudo -u postgres psql -l
+    ```
+    If missing, create it: `sudo -u postgres psql -c "CREATE DATABASE inventory_db OWNER inventory_user;"`
+
+3.  **Special Characters**: If your password has symbols like `@`, `:`, `/`, or `#`, it **must be URL encoded** in the `.env` file.
+    *   Example: `p@ssword` becomes `p%40ssword`.
+    *   **Recommendation**: Use a simple alphanumeric password first to test.
+
+4.  **Verifying Local Connection**: Try logging in manually using the credentials from `.env`:
+    ```bash
+    psql -h localhost -U inventory_user -d inventory_db
+    ```
+    (It will prompt for password). If this fails, the issue is definitely the password or Postgres permissions.
 
 ### Error: `PrismaClientInitializationError`
 This happens if the database is not accessible.

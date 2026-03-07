@@ -24,6 +24,10 @@ async function main() {
         process.exit(1);
     }
 
+    // Masked connection string for debugging
+    const maskedUrl = process.env.DATABASE_URL.replace(/:([^@]+)@/, ':****@');
+    console.log(`Connecting to: ${maskedUrl}`);
+
     const email = await new Promise<string>((resolve) => {
         rl.question('Enter email: ', resolve);
     });

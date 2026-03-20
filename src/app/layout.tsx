@@ -13,6 +13,7 @@ const geistMono = Geist_Mono({
 });
 
 import { NextAuthProvider } from "@/components/providers";
+import { Sidebar } from "@/components/Sidebar";
 
 export const metadata: Metadata = {
   title: "Inventory Master | Precision Tracking",
@@ -27,10 +28,13 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
+        className={`${geistSans.variable} ${geistMono.variable} antialiased min-h-screen flex flex-col md:flex-row bg-[#0f172a]`}
       >
         <NextAuthProvider>
-          {children}
+          <Sidebar />
+          <main className="flex-1 flex flex-col">
+            {children}
+          </main>
         </NextAuthProvider>
       </body>
     </html>

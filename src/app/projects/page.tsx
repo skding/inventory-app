@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { FolderKanban, Plus, Archive, ArchiveRestore, Loader2, ArrowLeft, MoreVertical, Search } from "lucide-react";
+import { FolderKanban, Plus, Archive, ArchiveRestore, Loader2, MoreVertical, Search } from "lucide-react";
 import Link from "next/link";
 
 type Project = {
@@ -89,9 +89,6 @@ export default function ProjectsPage() {
         <div className="min-h-screen bg-[#0f172a] p-4 md:p-8 pb-24 md:pb-8">
             <header className="flex items-center justify-between mb-8 max-w-5xl mx-auto">
                 <div className="flex items-center gap-4">
-                    <Link href="/" className="p-2 hover:bg-white/5 rounded-xl transition-colors">
-                        <ArrowLeft className="text-slate-400" />
-                    </Link>
                     <h1 className="text-2xl font-bold md:text-3xl flex items-center gap-3">
                         <FolderKanban className="text-primary" /> Projects
                     </h1>

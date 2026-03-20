@@ -137,7 +137,7 @@ export default function ScanPage() {
                     setStatus("SUCCESS");
                     setMessage(`Item created and ${quantity} IN successfully`);
                     setTimeout(() => {
-                        setMode("SELECT");
+                        setMode("SCAN");
                         setQuantity(1);
                         setSelectedProjectId("");
                         setStatus("IDLE");
@@ -163,7 +163,7 @@ export default function ScanPage() {
                 setStatus("SUCCESS");
                 setMessage(`${type} recorded successfully`);
                 setTimeout(() => {
-                    setMode("SELECT");
+                    setMode("SCAN");
                     setQuantity(1);
                     setStatus("IDLE");
                 }, 1500);
@@ -272,20 +272,30 @@ export default function ScanPage() {
                         </div>
 
                         {item?.id === "" ? (
-                            <div className="space-y-2 mb-4">
-                                <label className="text-sm font-medium text-slate-400">Item Name</label>
-                                <input
-                                    type="text"
-                                    className="w-full input-field"
-                                    placeholder="Enter item name..."
-                                    value={item.name}
-                                    onChange={(e) => setItem({ ...item, name: e.target.value })}
-                                />
+                            <div className="space-y-4 mb-6">
+                                <div className="space-y-2">
+                                    <label className="text-sm font-medium text-slate-400 font-mono flex items-center gap-2">
+                                        <Package size={14} /> NEW ITEM DETECTED
+                                    </label>
+                                    <p className="text-xl font-bold text-primary font-mono">{barcode}</p>
+                                </div>
+                                <div className="space-y-2">
+                                    <label className="text-sm font-medium text-slate-400">Item Name</label>
+                                    <input
+                                        type="text"
+                                        className="w-full input-field"
+                                        placeholder="Enter item name..."
+                                        value={item.name}
+                                        onChange={(e) => setItem({ ...item, name: e.target.value })}
+                                    />
+                                </div>
                             </div>
                         ) : (
-                            <h2 className="text-2xl font-bold mb-2">{item?.name}</h2>
+                            <div className="mb-6">
+                                <h2 className="text-2xl font-bold mb-2">{item?.name}</h2>
+                                <p className="text-slate-400 text-sm font-mono">{barcode}</p>
+                            </div>
                         )}
-                        <p className="text-slate-400 text-sm font-mono mb-8">{barcode}</p>
 
                         <div className="space-y-6">
                             <div className="space-y-2">

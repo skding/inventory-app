@@ -1,13 +1,18 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Package, Search, Loader2, AlertCircle, Trash2, Tag, ChevronDown, Plus } from "lucide-react";
+import { Package, Search, Loader2, AlertCircle, Trash2, Tag, ChevronDown, Plus, Minus, ArrowDownLeft, ArrowUpRight, X, CheckCircle2 } from "lucide-react";
 import Link from "next/link";
 
 type Category = {
     id: string;
     name: string;
     color: string | null;
+};
+
+type Project = {
+    id: string;
+    name: string;
 };
 
 type Item = {
@@ -26,22 +31,36 @@ type Item = {
 export default function InventoryPage() {
     const [items, setItems] = useState<Item[]>([]);
     const [categories, setCategories] = useState<Category[]>([]);
+    const [projects, setProjects] = useState<Project[]>([]);
     const [loading, setLoading] = useState(true);
     const [search, setSearch] = useState("");
     const [selectedCategoryFilter, setSelectedCategoryFilter] = useState<string>("ALL");
     const [mounted, setMounted] = useState(false);
 
+    // Quick Operation Modal State
+    const [quickOpModal, setQuickOpModal] = useState<{
+        item: Item;
+        type: "IN" | "OUT";
+    } | null>(null);
+    const [opQuantity, setOpQuantity] = useState<number>(1);
+    const [opProjectId, setOpProjectId] = useState<string>("");
+    const [opSubmitting, setOpSubmitting] = useState(false);
+    const [opMessage, setOpMessage] = useState<{ text: string; error?: boolean } | null>(null);
+
     const fetchData = async () => {
         setLoading(true);
         try {
-            const [itemRes, catRes] = await Promise.all([
+            const [itemRes, catRes, projRes] = await Promise.all([
                 fetch("/api/items"),
                 fetch("/api/categories"),
+                fetch("/api/projects"),
             ]);
             const itemData = await itemRes.json();
             const catData = await catRes.json();
+            const projData = await projRes.json();
             setItems(Array.isArray(itemData) ? itemData : []);
             setCategories(Array.isArray(catData) ? catData : []);
+            setProjects(Array.isArray(projData) ? projData.filter((p: any) => !p.is_archived) : []);
         } catch (err) {
             console.error("Failed to fetch inventory data:", err);
         } finally {
@@ -82,6 +101,60 @@ export default function InventoryPage() {
             }
         } catch (err) {
             console.error(err);
+        }
+    };
+
+    const openQuickOp = (item: Item, type: "IN" | "OUT") => {
+        setQuickOpModal({ item, type });
+        setOpQuantity(1);
+        setOpProjectId("");
+        setOpMessage(null);
+    };
+
+    const handleConfirmQuickOp = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!quickOpModal) return;
+
+        if (opQuantity <= 0) {
+            setOpMessage({ text: "Quantity must be greater than 0", error: true });
+            return;
+        }
+
+        if (quickOpModal.type === "OUT" && quickOpModal.item.quantity < opQuantity) {
+            setOpMessage({ text: "Insufficient stock available", error: true });
+            return;
+        }
+
+        setOpSubmitting(true);
+        setOpMessage(null);
+
+        try {
+            const res = await fetch("/api/transactions", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    barcode: quickOpModal.item.barcode,
+                    type: quickOpModal.type,
+                    quantity: opQuantity,
+                    project_id: opProjectId || null,
+                }),
+            });
+
+            const data = await res.json();
+            if (res.ok) {
+                setOpMessage({ text: `${quickOpModal.type} recorded successfully!` });
+                setTimeout(() => {
+                    setQuickOpModal(null);
+                    fetchData();
+                }, 1000);
+            } else {
+                setOpMessage({ text: data.message || "Failed to process operation", error: true });
+            }
+        } catch (err) {
+            console.error(err);
+            setOpMessage({ text: "An error occurred during transaction", error: true });
+        } finally {
+            setOpSubmitting(false);
         }
     };
 
@@ -175,6 +248,7 @@ export default function InventoryPage() {
                                         <th className="px-6 py-4 font-semibold">Category</th>
                                         <th className="px-6 py-4 font-semibold">SKU / Barcode</th>
                                         <th className="px-6 py-4 font-semibold">Quantity</th>
+                                        <th className="px-6 py-4 font-semibold text-center">Quick Stock Ops</th>
                                         <th className="px-6 py-4 font-semibold text-right">Actions</th>
                                     </tr>
                                 </thead>
@@ -186,7 +260,7 @@ export default function InventoryPage() {
                                                 <div className="text-xs text-slate-500 truncate max-w-[200px]">{item.description || "No description"}</div>
                                             </td>
 
-                                            {/* Category Column with Quick Category Selector */}
+                                            {/* Category Column */}
                                             <td className="px-6 py-4">
                                                 <div className="relative inline-block group/cat">
                                                     <select
@@ -209,6 +283,7 @@ export default function InventoryPage() {
                                                 <div className="text-sm font-mono text-slate-400">{item.sku || "N/A"}</div>
                                                 <div className="text-[10px] text-slate-500">{item.barcode}</div>
                                             </td>
+
                                             <td className="px-6 py-4">
                                                 <div className="flex items-center gap-2">
                                                     <span className={`text-lg font-bold ${item.quantity < 5 ? "text-amber-500" : "text-emerald-500"}`}>
@@ -217,6 +292,28 @@ export default function InventoryPage() {
                                                     <span className="text-xs text-slate-500 uppercase">{item.unit_of_measure || "pcs"}</span>
                                                 </div>
                                             </td>
+
+                                            {/* Quick Operation Column (Inbound / Outbound Buttons) */}
+                                            <td className="px-6 py-4">
+                                                <div className="flex items-center justify-center gap-2">
+                                                    <button
+                                                        onClick={() => openQuickOp(item, "IN")}
+                                                        className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/20 text-xs font-semibold transition-all active:scale-95"
+                                                        title="Quick Inbound Stock"
+                                                    >
+                                                        <ArrowDownLeft size={14} /> + Inbound
+                                                    </button>
+
+                                                    <button
+                                                        onClick={() => openQuickOp(item, "OUT")}
+                                                        className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/20 text-xs font-semibold transition-all active:scale-95"
+                                                        title="Quick Outbound Stock"
+                                                    >
+                                                        <ArrowUpRight size={14} /> - Outbound
+                                                    </button>
+                                                </div>
+                                            </td>
+
                                             <td className="px-6 py-4 text-right">
                                                 <button
                                                     onClick={() => handleDelete(item.id, item.name)}
@@ -234,6 +331,113 @@ export default function InventoryPage() {
                     </div>
                 )}
             </div>
+
+            {/* Modal: Quick Inbound / Outbound Operation */}
+            {quickOpModal && (
+                <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+                    <div className="premium-card max-w-md w-full p-6 animate-in zoom-in-95 duration-200">
+                        <div className="flex items-center justify-between mb-4 pb-3 border-b border-white/10">
+                            <div className="flex items-center gap-2">
+                                <div className={`p-2 rounded-xl ${quickOpModal.type === 'IN' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-rose-500/20 text-rose-400'}`}>
+                                    {quickOpModal.type === 'IN' ? <ArrowDownLeft size={20} /> : <ArrowUpRight size={20} />}
+                                </div>
+                                <div>
+                                    <h2 className="text-lg font-bold">
+                                        Quick {quickOpModal.type === "IN" ? "Inbound (+)" : "Outbound (-)"}
+                                    </h2>
+                                    <p className="text-xs text-slate-400 font-mono">{quickOpModal.item.name}</p>
+                                </div>
+                            </div>
+                            <button
+                                onClick={() => setQuickOpModal(null)}
+                                className="p-1 hover:bg-white/10 rounded-lg text-slate-400 hover:text-white"
+                            >
+                                <X size={20} />
+                            </button>
+                        </div>
+
+                        <form onSubmit={handleConfirmQuickOp} className="space-y-5">
+                            <div className="p-3 bg-white/5 rounded-xl flex justify-between items-center text-xs text-slate-300">
+                                <span>Current Stock:</span>
+                                <span className="font-bold text-sm text-slate-100">
+                                    {quickOpModal.item.quantity} {quickOpModal.item.unit_of_measure || "pcs"}
+                                </span>
+                            </div>
+
+                            {/* Quantity Control */}
+                            <div className="space-y-2">
+                                <label className="text-sm font-medium text-slate-300">Transaction Quantity</label>
+                                <div className="flex items-center gap-3 bg-white/5 p-2 rounded-xl border border-white/10">
+                                    <button
+                                        type="button"
+                                        onClick={() => setOpQuantity(Math.max(1, opQuantity - 1))}
+                                        className="w-10 h-10 rounded-lg bg-white/10 flex items-center justify-center font-bold text-lg hover:bg-white/20 active:scale-95 transition-all text-slate-200"
+                                    >
+                                        -
+                                    </button>
+                                    <input
+                                        type="number"
+                                        min="1"
+                                        required
+                                        className="flex-1 bg-transparent text-center text-xl font-bold focus:outline-none text-white"
+                                        value={opQuantity}
+                                        onChange={(e) => setOpQuantity(parseInt(e.target.value) || 1)}
+                                    />
+                                    <button
+                                        type="button"
+                                        onClick={() => setOpQuantity(opQuantity + 1)}
+                                        className="w-10 h-10 rounded-lg bg-white/10 flex items-center justify-center font-bold text-lg hover:bg-white/20 active:scale-95 transition-all text-slate-200"
+                                    >
+                                        +
+                                    </button>
+                                </div>
+                            </div>
+
+                            {/* Project Select */}
+                            <div className="space-y-2">
+                                <label className="text-sm font-medium text-slate-300">Project / Purpose (Optional)</label>
+                                <div className="relative">
+                                    <select
+                                        className="w-full input-field appearance-none pr-8 text-sm"
+                                        value={opProjectId}
+                                        onChange={(e) => setOpProjectId(e.target.value)}
+                                    >
+                                        <option value="">No Project (General Stock)</option>
+                                        {projects.map((p) => (
+                                            <option key={p.id} value={p.id}>{p.name}</option>
+                                        ))}
+                                    </select>
+                                    <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none" size={16} />
+                                </div>
+                            </div>
+
+                            {opMessage && (
+                                <div className={`p-3 rounded-xl text-xs flex items-center gap-2 ${opMessage.error ? 'bg-rose-500/10 text-rose-400 border border-rose-500/20' : 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'}`}>
+                                    {opMessage.error ? <AlertCircle size={16} /> : <CheckCircle2 size={16} />}
+                                    <span>{opMessage.text}</span>
+                                </div>
+                            )}
+
+                            <div className="flex items-center gap-3 pt-3 border-t border-white/10">
+                                <button
+                                    type="button"
+                                    onClick={() => setQuickOpModal(null)}
+                                    className="flex-1 px-4 py-2.5 rounded-xl border border-white/10 text-slate-400 hover:text-white font-medium text-sm"
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    type="submit"
+                                    disabled={opSubmitting}
+                                    className={`flex-1 py-2.5 rounded-xl font-semibold text-sm flex items-center justify-center gap-2 text-white shadow-lg transition-all ${quickOpModal.type === 'IN' ? 'bg-emerald-600 hover:bg-emerald-500 shadow-emerald-600/20' : 'bg-rose-600 hover:bg-rose-500 shadow-rose-600/20'}`}
+                                >
+                                    {opSubmitting ? <Loader2 className="animate-spin" size={18} /> : `Confirm ${quickOpModal.type}`}
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

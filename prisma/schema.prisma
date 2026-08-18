@@ -38,10 +38,23 @@ model Item {
   description     String?
   quantity        Int           @default(0)
   unit_of_measure String?
+  category_id     String?       @db.Uuid
   created_at      DateTime      @default(now())
+  category        Category?     @relation(fields: [category_id], references: [id], onDelete: SetNull)
   transactions    Transaction[]
 
   @@map("items")
+}
+
+model Category {
+  id          String   @id @default(uuid()) @db.Uuid
+  name        String   @unique
+  description String?
+  color       String?  @default("#3b82f6")
+  created_at  DateTime @default(now())
+  items       Item[]
+
+  @@map("categories")
 }
 
 enum TransactionType {

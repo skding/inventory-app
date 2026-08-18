@@ -9,20 +9,30 @@ export async function GET(req: Request) {
 
     const { searchParams } = new URL(req.url);
     const barcode = searchParams.get("barcode");
+    const categoryId = searchParams.get("category_id");
 
     try {
         if (barcode) {
             const item = await prisma.item.findUnique({
                 where: { barcode },
+                include: { category: true },
             });
             return NextResponse.json(item);
         }
 
+        const whereClause: any = {};
+        if (categoryId) {
+            whereClause.category_id = categoryId === "null" ? null : categoryId;
+        }
+
         const items = await prisma.item.findMany({
+            where: whereClause,
             orderBy: { name: "asc" },
+            include: { category: true },
         });
         return NextResponse.json(items);
     } catch (error) {
+        console.error("Fetch items error:", error);
         return NextResponse.json({ message: "Error fetching items" }, { status: 500 });
     }
 }
@@ -33,7 +43,7 @@ export async function POST(req: Request) {
     const userId = (session.user as any).id;
 
     try {
-        const { sku, barcode, name, description, quantity, unit_of_measure, project_id } = await req.json();
+        const { sku, barcode, name, description, quantity, unit_of_measure, project_id, category_id } = await req.json();
 
         if (!barcode || !name) {
             return NextResponse.json({ message: "Barcode and Name are required" }, { status: 400 });
@@ -42,13 +52,15 @@ export async function POST(req: Request) {
         const result = await prisma.$transaction(async (tx) => {
             const item = await tx.item.create({
                 data: {
-                    sku,
+                    sku: sku || null,
                     barcode,
                     name,
-                    description,
+                    description: description || null,
                     quantity: quantity || 0,
-                    unit_of_measure,
+                    unit_of_measure: unit_of_measure || null,
+                    category_id: category_id || null,
                 },
+                include: { category: true },
             });
 
             if (quantity > 0) {
@@ -68,10 +80,39 @@ export async function POST(req: Request) {
         return NextResponse.json(result, { status: 201 });
     } catch (error: any) {
         console.error("Create item error:", error);
-        if (error.code === 'P2002') {
+        if (error.code === "P2002") {
             return NextResponse.json({ message: "Barcode or SKU already exists" }, { status: 400 });
         }
         return NextResponse.json({ message: "Error creating item" }, { status: 500 });
+    }
+}
+
+export async function PUT(req: Request) {
+    const session = await getServerSession(authOptions);
+    if (!session) return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+
+    try {
+        const { id, category_id, name, description, sku, unit_of_measure } = await req.json();
+
+        if (!id) return NextResponse.json({ message: "Item ID is required" }, { status: 400 });
+
+        const updateData: any = {};
+        if (category_id !== undefined) updateData.category_id = category_id || null;
+        if (name !== undefined) updateData.name = name;
+        if (description !== undefined) updateData.description = description || null;
+        if (sku !== undefined) updateData.sku = sku || null;
+        if (unit_of_measure !== undefined) updateData.unit_of_measure = unit_of_measure || null;
+
+        const updatedItem = await prisma.item.update({
+            where: { id },
+            data: updateData,
+            include: { category: true },
+        });
+
+        return NextResponse.json(updatedItem);
+    } catch (error: any) {
+        console.error("Update item error:", error);
+        return NextResponse.json({ message: "Error updating item" }, { status: 500 });
     }
 }
 

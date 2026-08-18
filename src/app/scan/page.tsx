@@ -18,13 +18,20 @@ type Item = {
     unit_of_measure: string | null;
 };
 
+type Category = {
+    id: string;
+    name: string;
+};
+
 export default function ScanPage() {
     const [mode, setMode] = useState<"SELECT" | "SCAN" | "DETAILS">("SELECT");
     const [type, setType] = useState<"IN" | "OUT" | null>(null);
     const [barcode, setBarcode] = useState("");
     const [item, setItem] = useState<Item | null>(null);
     const [projects, setProjects] = useState<Project[]>([]);
+    const [categories, setCategories] = useState<Category[]>([]);
     const [selectedProjectId, setSelectedProjectId] = useState<string>("");
+    const [selectedCategoryId, setSelectedCategoryId] = useState<string>("");
     const [quantity, setQuantity] = useState(1);
     const [loading, setLoading] = useState(false);
     const [status, setStatus] = useState<"IDLE" | "SUCCESS" | "ERROR">("IDLE");
@@ -38,6 +45,16 @@ export default function ScanPage() {
             const res = await fetch("/api/projects");
             const data = await res.json();
             setProjects(data.filter((p: any) => !p.is_archived));
+        } catch (err) {
+            console.error(err);
+        }
+    };
+
+    const fetchCategories = async () => {
+        try {
+            const res = await fetch("/api/categories");
+            const data = await res.json();
+            setCategories(Array.isArray(data) ? data : []);
         } catch (err) {
             console.error(err);
         }
@@ -74,6 +91,7 @@ export default function ScanPage() {
     useEffect(() => {
         setMounted(true);
         fetchProjects();
+        fetchCategories();
     }, []);
 
     useEffect(() => {
@@ -123,7 +141,8 @@ export default function ScanPage() {
                         barcode,
                         name: item?.name || "Scanned Item",
                         quantity: type === "IN" ? quantity : 0,
-                        project_id: selectedProjectId || null
+                        project_id: selectedProjectId || null,
+                        category_id: selectedCategoryId || null,
                     }),
                 });
 
@@ -288,6 +307,22 @@ export default function ScanPage() {
                                         value={item.name}
                                         onChange={(e) => setItem({ ...item, name: e.target.value })}
                                     />
+                                </div>
+                                <div className="space-y-2">
+                                    <label className="text-sm font-medium text-slate-400">Category (Optional)</label>
+                                    <div className="relative">
+                                        <select
+                                            className="w-full input-field appearance-none"
+                                            value={selectedCategoryId}
+                                            onChange={(e) => setSelectedCategoryId(e.target.value)}
+                                        >
+                                            <option value="">Uncategorized</option>
+                                            {categories.map((c) => (
+                                                <option key={c.id} value={c.id}>{c.name}</option>
+                                            ))}
+                                        </select>
+                                        <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none" size={16} />
+                                    </div>
                                 </div>
                             </div>
                         ) : (

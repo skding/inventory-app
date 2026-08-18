@@ -1,7 +1,7 @@
 "use client";
 
 import { useSession, signOut } from "next-auth/react";
-import { LogOut, Package, LayoutDashboard, History as HistoryIcon, FolderKanban, Plus } from "lucide-react";
+import { LogOut, Package, LayoutDashboard, History as HistoryIcon, FolderKanban, Plus, Tag, Settings as SettingsIcon } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
@@ -26,19 +26,21 @@ export function Sidebar() {
         <nav className="flex-1 space-y-2">
           <Link href="/"><NavItem icon={<LayoutDashboard size={20} />} label="Dashboard" active={pathname === "/"} /></Link>
           <Link href="/inventory"><NavItem icon={<Package size={20} />} label="Inventory" active={pathname === "/inventory"} /></Link>
+          <Link href="/categories"><NavItem icon={<Tag size={20} />} label="Categories" active={pathname === "/categories"} /></Link>
           <Link href="/projects"><NavItem icon={<FolderKanban size={20} />} label="Projects" active={pathname === "/projects"} /></Link>
           <Link href="/transactions"><NavItem icon={<HistoryIcon size={20} />} label="Transactions" active={pathname === "/transactions"} /></Link>
+          <Link href="/settings"><NavItem icon={<SettingsIcon size={20} />} label="Settings" active={pathname === "/settings"} /></Link>
         </nav>
 
         <div className="mt-auto pt-6 border-t border-border-subtle">
-          <div className="flex items-center gap-3 mb-4 px-2 text-sm text-slate-400">
-            <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center text-primary font-bold">
+          <Link href="/settings" className="flex items-center gap-3 mb-4 px-2 text-sm text-slate-400 hover:text-white group transition-colors">
+            <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center text-primary font-bold group-hover:bg-primary group-hover:text-white transition-colors">
               {session?.user?.email?.[0].toUpperCase()}
             </div>
             <div className="flex-1 truncate">
               {session?.user?.email}
             </div>
-          </div>
+          </Link>
           <button
             onClick={() => signOut()}
             className="w-full flex items-center gap-3 px-3 py-2 text-slate-400 hover:text-white hover:bg-white/5 rounded-lg transition-colors"
@@ -53,6 +55,7 @@ export function Sidebar() {
       <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-bg-card/90 backdrop-blur-lg border-t border-border-subtle flex justify-around items-center p-4 z-50">
         <Link href="/"><MobileNavItem icon={<LayoutDashboard />} active={pathname === "/"} /></Link>
         <Link href="/inventory"><MobileNavItem icon={<Package />} active={pathname === "/inventory"} /></Link>
+        <Link href="/categories"><MobileNavItem icon={<Tag />} active={pathname === "/categories"} /></Link>
         <Link href="/scan">
           <div className="relative -top-6 bg-primary p-4 rounded-full shadow-xl shadow-primary/30 text-white">
             <Plus size={24} />
@@ -60,6 +63,7 @@ export function Sidebar() {
         </Link>
         <Link href="/projects"><MobileNavItem icon={<FolderKanban />} active={pathname === "/projects"} /></Link>
         <Link href="/transactions"><MobileNavItem icon={<HistoryIcon />} active={pathname === "/transactions"} /></Link>
+        <Link href="/settings"><MobileNavItem icon={<SettingsIcon />} active={pathname === "/settings"} /></Link>
       </nav>
     </>
   );

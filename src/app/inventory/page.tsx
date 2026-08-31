@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Package, Search, Loader2, AlertCircle, Trash2, Tag, ChevronDown, Plus, Minus, ArrowDownLeft, ArrowUpRight, X, CheckCircle2, Edit2, Sparkles } from "lucide-react";
+import { Package, Search, Loader2, AlertCircle, Trash2, Tag, ChevronDown, Plus, Minus, ArrowDownLeft, ArrowUpRight, X, CheckCircle2, Edit2, Archive, ArchiveRestore, RefreshCw, Layers } from "lucide-react";
 import Link from "next/link";
 
 type Category = {
@@ -23,6 +23,7 @@ type Item = {
     description: string | null;
     quantity: number;
     unit_of_measure: string | null;
+    is_archived: boolean;
     created_at: string;
     category_id: string | null;
     category: Category | null;
@@ -35,6 +36,7 @@ export default function InventoryPage() {
     const [loading, setLoading] = useState(true);
     const [search, setSearch] = useState("");
     const [selectedCategoryFilter, setSelectedCategoryFilter] = useState<string>("ALL");
+    const [activeTab, setActiveTab] = useState<"ACTIVE" | "ARCHIVED">("ACTIVE");
     const [mounted, setMounted] = useState(false);
 
     // Quick Operation Modal State
@@ -58,6 +60,19 @@ export default function InventoryPage() {
     const [editSubmitting, setEditSubmitting] = useState(false);
     const [editError, setEditError] = useState("");
 
+    // Create Item Modal State
+    const [isCreateOpen, setIsCreateOpen] = useState(false);
+    const [createName, setCreateName] = useState("");
+    const [createBarcode, setCreateBarcode] = useState("");
+    const [createSku, setCreateSku] = useState("");
+    const [createQuantity, setCreateQuantity] = useState<number>(0);
+    const [createUnitOfMeasure, setCreateUnitOfMeasure] = useState("pcs");
+    const [createCategoryId, setCreateCategoryId] = useState("NONE");
+    const [createProjectId, setCreateProjectId] = useState("");
+    const [createDescription, setCreateDescription] = useState("");
+    const [createSubmitting, setCreateSubmitting] = useState(false);
+    const [createError, setCreateError] = useState("");
+
     const fetchData = async () => {
         setLoading(true);
         try {
@@ -80,7 +95,7 @@ export default function InventoryPage() {
     };
 
     const handleDelete = async (id: string, name: string) => {
-        if (!confirm(`Are you sure you want to delete ${name}?`)) return;
+        if (!confirm(`Are you sure you want to permanently delete "${name}"?`)) return;
 
         try {
             const res = await fetch(`/api/items?id=${id}`, {
@@ -94,6 +109,31 @@ export default function InventoryPage() {
         } catch (err) {
             console.error(err);
             alert("Error deleting item");
+        }
+    };
+
+    const handleToggleArchive = async (item: Item) => {
+        const nextState = !item.is_archived;
+        const actionText = nextState ? "archive" : "unarchive";
+        if (!confirm(`Are you sure you want to ${actionText} "${item.name}"?`)) return;
+
+        try {
+            const res = await fetch("/api/items", {
+                method: "PUT",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    id: item.id,
+                    is_archived: nextState,
+                }),
+            });
+            if (res.ok) {
+                fetchData();
+            } else {
+                alert(`Failed to ${actionText} item`);
+            }
+        } catch (err) {
+            console.error("Archive toggle error:", err);
+            alert("Error updating item archive status");
         }
     };
 
@@ -112,6 +152,69 @@ export default function InventoryPage() {
             }
         } catch (err) {
             console.error(err);
+        }
+    };
+
+    const generateRandomBarcode = () => {
+        const randomNum = Math.floor(100000 + Math.random() * 900000);
+        return `ITM-${randomNum}`;
+    };
+
+    const openCreateModal = () => {
+        setCreateName("");
+        setCreateBarcode(generateRandomBarcode());
+        setCreateSku("");
+        setCreateQuantity(0);
+        setCreateUnitOfMeasure("pcs");
+        setCreateCategoryId("NONE");
+        setCreateProjectId("");
+        setCreateDescription("");
+        setCreateError("");
+        setIsCreateOpen(true);
+    };
+
+    const handleCreateItem = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!createName.trim()) {
+            setCreateError("Item name is required");
+            return;
+        }
+        if (!createBarcode.trim()) {
+            setCreateError("Barcode is required");
+            return;
+        }
+
+        setCreateSubmitting(true);
+        setCreateError("");
+
+        try {
+            const res = await fetch("/api/items", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    name: createName.trim(),
+                    barcode: createBarcode.trim(),
+                    sku: createSku.trim() || null,
+                    quantity: createQuantity > 0 ? createQuantity : 0,
+                    unit_of_measure: createUnitOfMeasure.trim() || null,
+                    category_id: createCategoryId === "NONE" ? null : createCategoryId,
+                    project_id: createProjectId || null,
+                    description: createDescription.trim() || null,
+                }),
+            });
+
+            const data = await res.json();
+            if (res.ok) {
+                setIsCreateOpen(false);
+                fetchData();
+            } else {
+                setCreateError(data.message || "Failed to create item");
+            }
+        } catch (err) {
+            console.error("Create item error:", err);
+            setCreateError("An unexpected error occurred while creating item");
+        } finally {
+            setCreateSubmitting(false);
         }
     };
 
@@ -234,7 +337,14 @@ export default function InventoryPage() {
 
     if (!mounted) return null;
 
-    const filteredItems = items.filter((item) => {
+    const activeCount = items.filter((i) => !i.is_archived).length;
+    const archivedCount = items.filter((i) => i.is_archived).length;
+
+    const tabFilteredItems = items.filter((item) =>
+        activeTab === "ARCHIVED" ? item.is_archived : !item.is_archived
+    );
+
+    const filteredItems = tabFilteredItems.filter((item) => {
         const matchesSearch =
             item.name.toLowerCase().includes(search.toLowerCase()) ||
             item.barcode.toLowerCase().includes(search.toLowerCase()) ||
@@ -250,21 +360,49 @@ export default function InventoryPage() {
 
     return (
         <div className="min-h-screen bg-[#0f172a] p-4 md:p-8 pb-24 md:pb-8">
-            <header className="flex items-center justify-between mb-8 max-w-6xl mx-auto">
+            <header className="flex flex-col sm:flex-row sm:items-center justify-between mb-8 max-w-6xl mx-auto gap-4">
                 <div className="flex items-center gap-4">
                     <h1 className="text-2xl font-bold md:text-3xl flex items-center gap-3">
                         <Package className="text-primary" /> Inventory
                     </h1>
                 </div>
-                <div className="flex gap-2">
-                    <Link href="/categories" className="px-4 py-2 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 text-slate-300 font-medium text-sm flex items-center gap-2 transition-colors">
+                <div className="flex flex-wrap items-center gap-2">
+                    <button
+                        onClick={openCreateModal}
+                        className="btn-primary flex items-center gap-2"
+                    >
+                        <Plus size={18} /> New Item
+                    </button>
+                    <Link href="/categories" className="px-4 py-2.5 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 text-slate-300 font-medium text-sm flex items-center gap-2 transition-colors">
                         <Tag size={16} className="text-primary" /> Manage Categories
                     </Link>
-                    <Link href="/scan" className="btn-primary">
-                        <Search size={20} /> <span className="hidden sm:inline">Scan Code</span>
+                    <Link href="/scan" className="px-4 py-2.5 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 text-slate-300 font-medium text-sm flex items-center gap-2 transition-colors">
+                        <Search size={16} className="text-primary" /> <span className="hidden sm:inline">Scan Code</span>
                     </Link>
                 </div>
             </header>
+
+            {/* Status Navigation Tabs (Active vs Archived) */}
+            <div className="max-w-6xl mx-auto mb-6 flex items-center gap-2 border-b border-white/10">
+                <button
+                    onClick={() => setActiveTab("ACTIVE")}
+                    className={`pb-3 px-4 text-sm font-semibold flex items-center gap-2 border-b-2 transition-all ${activeTab === "ACTIVE" ? "border-primary text-primary" : "border-transparent text-slate-400 hover:text-slate-200"}`}
+                >
+                    <Package size={16} /> Active Items
+                    <span className="text-xs px-2 py-0.5 rounded-full bg-white/10 text-slate-300 font-mono">
+                        {activeCount}
+                    </span>
+                </button>
+                <button
+                    onClick={() => setActiveTab("ARCHIVED")}
+                    className={`pb-3 px-4 text-sm font-semibold flex items-center gap-2 border-b-2 transition-all ${activeTab === "ARCHIVED" ? "border-amber-500 text-amber-400" : "border-transparent text-slate-400 hover:text-slate-200"}`}
+                >
+                    <Archive size={16} /> Archived Items
+                    <span className="text-xs px-2 py-0.5 rounded-full bg-white/10 text-slate-300 font-mono">
+                        {archivedCount}
+                    </span>
+                </button>
+            </div>
 
             {/* Filters */}
             <div className="max-w-6xl mx-auto mb-8 flex flex-col sm:flex-row gap-4">
@@ -303,9 +441,20 @@ export default function InventoryPage() {
                     <div className="flex justify-center p-12"><Loader2 className="animate-spin text-primary" size={32} /></div>
                 ) : filteredItems.length === 0 ? (
                     <div className="premium-card p-12 text-center text-slate-500 flex flex-col items-center gap-4">
-                        <AlertCircle size={48} className="opacity-20" />
-                        <p>No items found matching your filter.</p>
-                        <Link href="/scan" className="text-primary font-semibold">Start scanning to add items</Link>
+                        {activeTab === "ARCHIVED" ? (
+                            <>
+                                <Archive size={48} className="opacity-20 text-amber-500" />
+                                <p>No archived items found.</p>
+                            </>
+                        ) : (
+                            <>
+                                <AlertCircle size={48} className="opacity-20" />
+                                <p>No active items found matching your filter.</p>
+                                <button onClick={openCreateModal} className="text-primary font-semibold hover:underline">
+                                    + Add your first item
+                                </button>
+                            </>
+                        )}
                     </div>
                 ) : (
                     <div className="premium-card overflow-hidden border-none text-slate-300">
@@ -317,20 +466,32 @@ export default function InventoryPage() {
                                         <th className="px-6 py-4 font-semibold">Category</th>
                                         <th className="px-6 py-4 font-semibold">SKU / Barcode</th>
                                         <th className="px-6 py-4 font-semibold">Quantity</th>
-                                        <th className="px-6 py-4 font-semibold text-center">Quick Stock Ops</th>
+                                        {!tabFilteredItems[0]?.is_archived && (
+                                            <th className="px-6 py-4 font-semibold text-center">Quick Stock Ops</th>
+                                        )}
                                         <th className="px-6 py-4 font-semibold text-right">Actions</th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-white/5">
                                     {filteredItems.map((item) => (
-                                        <tr key={item.id} className="hover:bg-white/[0.02] transition-colors group">
+                                        <tr
+                                            key={item.id}
+                                            className={`hover:bg-white/[0.02] transition-colors group ${item.is_archived ? "opacity-75 bg-white/[0.01]" : ""}`}
+                                        >
                                             <td className="px-6 py-4">
-                                                <div 
-                                                    onClick={() => openEditModal(item)}
-                                                    className="font-bold text-slate-200 hover:text-primary cursor-pointer transition-colors flex items-center gap-2 group/itemtitle"
-                                                >
-                                                    <span>{item.name}</span>
-                                                    <Edit2 size={13} className="opacity-0 group-hover/itemtitle:opacity-100 text-primary transition-opacity" />
+                                                <div className="flex items-center gap-2">
+                                                    <div
+                                                        onClick={() => openEditModal(item)}
+                                                        className="font-bold text-slate-200 hover:text-primary cursor-pointer transition-colors flex items-center gap-2 group/itemtitle"
+                                                    >
+                                                        <span>{item.name}</span>
+                                                        <Edit2 size={13} className="opacity-0 group-hover/itemtitle:opacity-100 text-primary transition-opacity" />
+                                                    </div>
+                                                    {item.is_archived && (
+                                                        <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded bg-amber-500/10 text-amber-400 border border-amber-500/20">
+                                                            Archived
+                                                        </span>
+                                                    )}
                                                 </div>
                                                 <div className="text-xs text-slate-500 truncate max-w-[200px]">{item.description || "No description"}</div>
                                             </td>
@@ -368,29 +529,41 @@ export default function InventoryPage() {
                                                 </div>
                                             </td>
 
-                                            {/* Quick Operation Column (Inbound / Outbound Buttons) */}
-                                            <td className="px-6 py-4">
-                                                <div className="flex items-center justify-center gap-2">
-                                                    <button
-                                                        onClick={() => openQuickOp(item, "IN")}
-                                                        className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/20 text-xs font-semibold transition-all active:scale-95"
-                                                        title="Quick Inbound Stock"
-                                                    >
-                                                        <ArrowDownLeft size={14} /> + Inbound
-                                                    </button>
+                                            {/* Quick Operation Column */}
+                                            {!item.is_archived && (
+                                                <td className="px-6 py-4">
+                                                    <div className="flex items-center justify-center gap-2">
+                                                        <button
+                                                            onClick={() => openQuickOp(item, "IN")}
+                                                            className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/20 text-xs font-semibold transition-all active:scale-95"
+                                                            title="Quick Inbound Stock"
+                                                        >
+                                                            <ArrowDownLeft size={14} /> + Inbound
+                                                        </button>
 
-                                                    <button
-                                                        onClick={() => openQuickOp(item, "OUT")}
-                                                        className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/20 text-xs font-semibold transition-all active:scale-95"
-                                                        title="Quick Outbound Stock"
-                                                    >
-                                                        <ArrowUpRight size={14} /> - Outbound
-                                                    </button>
-                                                </div>
-                                            </td>
+                                                        <button
+                                                            onClick={() => openQuickOp(item, "OUT")}
+                                                            className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/20 text-xs font-semibold transition-all active:scale-95"
+                                                            title="Quick Outbound Stock"
+                                                        >
+                                                            <ArrowUpRight size={14} /> - Outbound
+                                                        </button>
+                                                    </div>
+                                                </td>
+                                            )}
 
                                             <td className="px-6 py-4 text-right">
                                                 <div className="flex items-center justify-end gap-1">
+                                                    {/* Toggle Archive Button */}
+                                                    <button
+                                                        onClick={() => handleToggleArchive(item)}
+                                                        className={`p-2 transition-opacity md:opacity-0 group-hover:opacity-100 rounded-lg ${item.is_archived ? "hover:bg-emerald-500/10 text-slate-400 hover:text-emerald-400" : "hover:bg-amber-500/10 text-slate-400 hover:text-amber-400"}`}
+                                                        title={item.is_archived ? "Restore / Unarchive Item" : "Archive Item"}
+                                                    >
+                                                        {item.is_archived ? <ArchiveRestore size={18} /> : <Archive size={18} />}
+                                                    </button>
+
+                                                    {/* Edit Button */}
                                                     <button
                                                         onClick={() => openEditModal(item)}
                                                         className="p-2 transition-opacity md:opacity-0 group-hover:opacity-100 hover:bg-white/10 rounded-lg text-slate-400 hover:text-primary"
@@ -398,6 +571,8 @@ export default function InventoryPage() {
                                                     >
                                                         <Edit2 size={18} />
                                                     </button>
+
+                                                    {/* Delete Button */}
                                                     <button
                                                         onClick={() => handleDelete(item.id, item.name)}
                                                         className="p-2 transition-opacity md:opacity-0 group-hover:opacity-100 hover:bg-rose-500/10 rounded-lg text-slate-400 hover:text-rose-500"
@@ -415,6 +590,193 @@ export default function InventoryPage() {
                     </div>
                 )}
             </div>
+
+            {/* Modal: Create New Inventory Item */}
+            {isCreateOpen && (
+                <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+                    <div className="premium-card max-w-lg w-full p-6 animate-in zoom-in-95 duration-200 max-h-[90vh] flex flex-col">
+                        <div className="flex items-center justify-between mb-4 pb-3 border-b border-white/10 flex-shrink-0">
+                            <div className="flex items-center gap-2.5">
+                                <div className="p-2 rounded-xl bg-primary/10 text-primary border border-primary/20">
+                                    <Plus size={20} />
+                                </div>
+                                <div>
+                                    <h2 className="text-lg font-bold text-slate-100">Add New Inventory Item</h2>
+                                    <p className="text-xs text-slate-400">Register a new product or component</p>
+                                </div>
+                            </div>
+                            <button
+                                onClick={() => setIsCreateOpen(false)}
+                                className="p-1 hover:bg-white/10 rounded-lg text-slate-400 hover:text-white transition-colors"
+                            >
+                                <X size={20} />
+                            </button>
+                        </div>
+
+                        <form onSubmit={handleCreateItem} className="space-y-4 overflow-y-auto flex-1 pr-1">
+                            {/* Item Name */}
+                            <div className="space-y-1.5">
+                                <label className="text-xs font-semibold text-slate-300 uppercase tracking-wider">Item Name *</label>
+                                <input
+                                    type="text"
+                                    required
+                                    placeholder="e.g. M4 Hex Bolt, Cat6 Cable..."
+                                    className="w-full input-field text-sm"
+                                    value={createName}
+                                    onChange={(e) => setCreateName(e.target.value)}
+                                />
+                            </div>
+
+                            {/* Barcode with Auto-generate Button and SKU */}
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                <div className="space-y-1.5">
+                                    <div className="flex items-center justify-between">
+                                        <label className="text-xs font-semibold text-slate-300 uppercase tracking-wider">Barcode *</label>
+                                        <button
+                                            type="button"
+                                            onClick={() => setCreateBarcode(generateRandomBarcode())}
+                                            className="text-[11px] text-primary hover:underline flex items-center gap-1"
+                                        >
+                                            <RefreshCw size={11} /> Auto-generate
+                                        </button>
+                                    </div>
+                                    <input
+                                        type="text"
+                                        required
+                                        placeholder="Barcode string..."
+                                        className="w-full input-field font-mono text-sm text-primary font-bold"
+                                        value={createBarcode}
+                                        onChange={(e) => setCreateBarcode(e.target.value)}
+                                    />
+                                </div>
+                                <div className="space-y-1.5">
+                                    <label className="text-xs font-semibold text-slate-300 uppercase tracking-wider">SKU / Code</label>
+                                    <input
+                                        type="text"
+                                        placeholder="Optional SKU..."
+                                        className="w-full input-field font-mono text-sm"
+                                        value={createSku}
+                                        onChange={(e) => setCreateSku(e.target.value)}
+                                    />
+                                </div>
+                            </div>
+
+                            {/* Initial Quantity and Project Assignment */}
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                <div className="space-y-1.5">
+                                    <label className="text-xs font-semibold text-slate-300 uppercase tracking-wider">Initial Quantity</label>
+                                    <input
+                                        type="number"
+                                        min="0"
+                                        className="w-full input-field text-sm"
+                                        value={createQuantity}
+                                        onChange={(e) => setCreateQuantity(parseInt(e.target.value) || 0)}
+                                    />
+                                </div>
+
+                                <div className="space-y-1.5">
+                                    <label className="text-xs font-semibold text-slate-300 uppercase tracking-wider">Initial Project (Optional)</label>
+                                    <div className="relative">
+                                        <select
+                                            className="w-full input-field appearance-none pr-8 text-sm"
+                                            value={createProjectId}
+                                            onChange={(e) => setCreateProjectId(e.target.value)}
+                                        >
+                                            <option value="">General Stock (No Project)</option>
+                                            {projects.map((p) => (
+                                                <option key={p.id} value={p.id}>{p.name}</option>
+                                            ))}
+                                        </select>
+                                        <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none" size={16} />
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Category & Unit of Measure */}
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                <div className="space-y-1.5">
+                                    <label className="text-xs font-semibold text-slate-300 uppercase tracking-wider">Category</label>
+                                    <div className="relative">
+                                        <select
+                                            className="w-full input-field appearance-none pr-8 text-sm"
+                                            value={createCategoryId}
+                                            onChange={(e) => setCreateCategoryId(e.target.value)}
+                                        >
+                                            <option value="NONE">Uncategorized</option>
+                                            {categories.map((c) => (
+                                                <option key={c.id} value={c.id}>{c.name}</option>
+                                            ))}
+                                        </select>
+                                        <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none" size={16} />
+                                    </div>
+                                </div>
+
+                                <div className="space-y-1.5">
+                                    <label className="text-xs font-semibold text-slate-300 uppercase tracking-wider">Unit of Measure</label>
+                                    <input
+                                        type="text"
+                                        placeholder="e.g. pcs, box, kg, meters"
+                                        className="w-full input-field text-sm"
+                                        value={createUnitOfMeasure}
+                                        onChange={(e) => setCreateUnitOfMeasure(e.target.value)}
+                                    />
+                                </div>
+                            </div>
+
+                            {/* Quick Unit Presets */}
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                                <span className="text-[11px] text-slate-500 mr-1">Presets:</span>
+                                {["pcs", "box", "kg", "meters", "roll", "set", "pack"].map((preset) => (
+                                    <button
+                                        key={preset}
+                                        type="button"
+                                        onClick={() => setCreateUnitOfMeasure(preset)}
+                                        className={`text-[11px] px-2 py-0.5 rounded-md border transition-all ${createUnitOfMeasure.toLowerCase() === preset ? 'bg-primary/20 text-primary border-primary/40 font-semibold' : 'bg-white/5 text-slate-400 border-white/10 hover:bg-white/10 hover:text-slate-200'}`}
+                                    >
+                                        {preset}
+                                    </button>
+                                ))}
+                            </div>
+
+                            {/* Description */}
+                            <div className="space-y-1.5">
+                                <label className="text-xs font-semibold text-slate-300 uppercase tracking-wider">Description</label>
+                                <textarea
+                                    rows={3}
+                                    placeholder="Optional item specifications, notes or description..."
+                                    className="w-full input-field resize-none text-sm"
+                                    value={createDescription}
+                                    onChange={(e) => setCreateDescription(e.target.value)}
+                                />
+                            </div>
+
+                            {createError && (
+                                <div className="p-3 rounded-xl bg-rose-500/10 text-rose-400 border border-rose-500/20 text-xs flex items-center gap-2">
+                                    <AlertCircle size={16} className="flex-shrink-0" />
+                                    <span>{createError}</span>
+                                </div>
+                            )}
+
+                            <div className="flex items-center gap-3 pt-3 border-t border-white/10 flex-shrink-0">
+                                <button
+                                    type="button"
+                                    onClick={() => setIsCreateOpen(false)}
+                                    className="flex-1 px-4 py-2.5 rounded-xl border border-white/10 text-slate-400 hover:text-white font-medium text-sm transition-colors"
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    type="submit"
+                                    disabled={createSubmitting}
+                                    className="flex-1 btn-primary py-2.5 rounded-xl font-semibold text-sm flex items-center justify-center gap-2"
+                                >
+                                    {createSubmitting ? <Loader2 className="animate-spin" size={18} /> : "Create Item"}
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            )}
 
             {/* Modal: Edit Inventory Item */}
             {editingItem && (

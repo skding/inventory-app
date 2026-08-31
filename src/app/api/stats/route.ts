@@ -8,7 +8,9 @@ export async function GET() {
     if (!session) return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
 
     try {
-        const totalItems = await prisma.item.count();
+        const totalItems = await prisma.item.count({
+            where: { is_archived: false },
+        });
         const activeProjects = await prisma.project.count({
             where: { is_archived: false },
         });

@@ -38,6 +38,7 @@ model Item {
   description     String?
   quantity        Int           @default(0)
   unit_of_measure String?
+  is_archived     Boolean       @default(false)
   category_id     String?       @db.Uuid
   created_at      DateTime      @default(now())
   category        Category?     @relation(fields: [category_id], references: [id], onDelete: SetNull)

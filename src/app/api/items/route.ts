@@ -10,6 +10,7 @@ export async function GET(req: Request) {
     const { searchParams } = new URL(req.url);
     const barcode = searchParams.get("barcode");
     const categoryId = searchParams.get("category_id");
+    const archivedParam = searchParams.get("archived");
 
     try {
         if (barcode) {
@@ -23,6 +24,11 @@ export async function GET(req: Request) {
         const whereClause: any = {};
         if (categoryId) {
             whereClause.category_id = categoryId === "null" ? null : categoryId;
+        }
+        if (archivedParam === "true") {
+            whereClause.is_archived = true;
+        } else if (archivedParam === "false") {
+            whereClause.is_archived = false;
         }
 
         const items = await prisma.item.findMany({
@@ -92,12 +98,13 @@ export async function PUT(req: Request) {
     if (!session) return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
 
     try {
-        const { id, category_id, name, description, sku, unit_of_measure, barcode } = await req.json();
+        const { id, category_id, name, description, sku, unit_of_measure, barcode, is_archived } = await req.json();
 
         if (!id) return NextResponse.json({ message: "Item ID is required" }, { status: 400 });
 
         const updateData: any = {};
         if (category_id !== undefined) updateData.category_id = category_id || null;
+        if (is_archived !== undefined) updateData.is_archived = Boolean(is_archived);
         if (name !== undefined) {
             if (!name.trim()) {
                 return NextResponse.json({ message: "Item name cannot be empty" }, { status: 400 });

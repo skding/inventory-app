@@ -92,16 +92,27 @@ export async function PUT(req: Request) {
     if (!session) return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
 
     try {
-        const { id, category_id, name, description, sku, unit_of_measure } = await req.json();
+        const { id, category_id, name, description, sku, unit_of_measure, barcode } = await req.json();
 
         if (!id) return NextResponse.json({ message: "Item ID is required" }, { status: 400 });
 
         const updateData: any = {};
         if (category_id !== undefined) updateData.category_id = category_id || null;
-        if (name !== undefined) updateData.name = name;
-        if (description !== undefined) updateData.description = description || null;
-        if (sku !== undefined) updateData.sku = sku || null;
-        if (unit_of_measure !== undefined) updateData.unit_of_measure = unit_of_measure || null;
+        if (name !== undefined) {
+            if (!name.trim()) {
+                return NextResponse.json({ message: "Item name cannot be empty" }, { status: 400 });
+            }
+            updateData.name = name.trim();
+        }
+        if (barcode !== undefined) {
+            if (!barcode.trim()) {
+                return NextResponse.json({ message: "Barcode cannot be empty" }, { status: 400 });
+            }
+            updateData.barcode = barcode.trim();
+        }
+        if (description !== undefined) updateData.description = description ? description.trim() : null;
+        if (sku !== undefined) updateData.sku = sku ? sku.trim() : null;
+        if (unit_of_measure !== undefined) updateData.unit_of_measure = unit_of_measure ? unit_of_measure.trim() : null;
 
         const updatedItem = await prisma.item.update({
             where: { id },
@@ -112,6 +123,9 @@ export async function PUT(req: Request) {
         return NextResponse.json(updatedItem);
     } catch (error: any) {
         console.error("Update item error:", error);
+        if (error.code === "P2002") {
+            return NextResponse.json({ message: "Barcode or SKU already exists" }, { status: 400 });
+        }
         return NextResponse.json({ message: "Error updating item" }, { status: 500 });
     }
 }

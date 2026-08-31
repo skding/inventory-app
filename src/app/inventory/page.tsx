@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Package, Search, Loader2, AlertCircle, Trash2, Tag, ChevronDown, Plus, Minus, ArrowDownLeft, ArrowUpRight, X, CheckCircle2 } from "lucide-react";
+import { Package, Search, Loader2, AlertCircle, Trash2, Tag, ChevronDown, Plus, Minus, ArrowDownLeft, ArrowUpRight, X, CheckCircle2, Edit2, Sparkles } from "lucide-react";
 import Link from "next/link";
 
 type Category = {
@@ -46,6 +46,17 @@ export default function InventoryPage() {
     const [opProjectId, setOpProjectId] = useState<string>("");
     const [opSubmitting, setOpSubmitting] = useState(false);
     const [opMessage, setOpMessage] = useState<{ text: string; error?: boolean } | null>(null);
+
+    // Edit Item Modal State
+    const [editingItem, setEditingItem] = useState<Item | null>(null);
+    const [editName, setEditName] = useState("");
+    const [editBarcode, setEditBarcode] = useState("");
+    const [editSku, setEditSku] = useState("");
+    const [editDescription, setEditDescription] = useState("");
+    const [editCategoryId, setEditCategoryId] = useState("NONE");
+    const [editUnitOfMeasure, setEditUnitOfMeasure] = useState("");
+    const [editSubmitting, setEditSubmitting] = useState(false);
+    const [editError, setEditError] = useState("");
 
     const fetchData = async () => {
         setLoading(true);
@@ -101,6 +112,64 @@ export default function InventoryPage() {
             }
         } catch (err) {
             console.error(err);
+        }
+    };
+
+    const openEditModal = (item: Item) => {
+        setEditingItem(item);
+        setEditName(item.name);
+        setEditBarcode(item.barcode);
+        setEditSku(item.sku || "");
+        setEditDescription(item.description || "");
+        setEditCategoryId(item.category_id || "NONE");
+        setEditUnitOfMeasure(item.unit_of_measure || "");
+        setEditError("");
+    };
+
+    const handleSaveEdit = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!editingItem) return;
+
+        if (!editName.trim()) {
+            setEditError("Item name is required");
+            return;
+        }
+
+        if (!editBarcode.trim()) {
+            setEditError("Barcode is required");
+            return;
+        }
+
+        setEditSubmitting(true);
+        setEditError("");
+
+        try {
+            const res = await fetch("/api/items", {
+                method: "PUT",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    id: editingItem.id,
+                    name: editName.trim(),
+                    barcode: editBarcode.trim(),
+                    sku: editSku.trim() || null,
+                    description: editDescription.trim() || null,
+                    category_id: editCategoryId === "NONE" ? null : editCategoryId,
+                    unit_of_measure: editUnitOfMeasure.trim() || null,
+                }),
+            });
+
+            const data = await res.json();
+            if (res.ok) {
+                setEditingItem(null);
+                fetchData();
+            } else {
+                setEditError(data.message || "Failed to update item details");
+            }
+        } catch (err) {
+            console.error("Save edit item error:", err);
+            setEditError("An unexpected error occurred while saving");
+        } finally {
+            setEditSubmitting(false);
         }
     };
 
@@ -256,7 +325,13 @@ export default function InventoryPage() {
                                     {filteredItems.map((item) => (
                                         <tr key={item.id} className="hover:bg-white/[0.02] transition-colors group">
                                             <td className="px-6 py-4">
-                                                <div className="font-bold text-slate-200">{item.name}</div>
+                                                <div 
+                                                    onClick={() => openEditModal(item)}
+                                                    className="font-bold text-slate-200 hover:text-primary cursor-pointer transition-colors flex items-center gap-2 group/itemtitle"
+                                                >
+                                                    <span>{item.name}</span>
+                                                    <Edit2 size={13} className="opacity-0 group-hover/itemtitle:opacity-100 text-primary transition-opacity" />
+                                                </div>
                                                 <div className="text-xs text-slate-500 truncate max-w-[200px]">{item.description || "No description"}</div>
                                             </td>
 
@@ -281,7 +356,7 @@ export default function InventoryPage() {
 
                                             <td className="px-6 py-4">
                                                 <div className="text-sm font-mono text-slate-400">{item.sku || "N/A"}</div>
-                                                <div className="text-[10px] text-slate-500">{item.barcode}</div>
+                                                <div className="text-[10px] text-slate-500 font-mono">{item.barcode}</div>
                                             </td>
 
                                             <td className="px-6 py-4">
@@ -315,13 +390,22 @@ export default function InventoryPage() {
                                             </td>
 
                                             <td className="px-6 py-4 text-right">
-                                                <button
-                                                    onClick={() => handleDelete(item.id, item.name)}
-                                                    className="p-2 transition-opacity md:opacity-0 group-hover:opacity-100 hover:bg-rose-500/10 rounded-lg text-slate-400 hover:text-rose-500"
-                                                    title="Delete Item"
-                                                >
-                                                    <Trash2 size={18} />
-                                                </button>
+                                                <div className="flex items-center justify-end gap-1">
+                                                    <button
+                                                        onClick={() => openEditModal(item)}
+                                                        className="p-2 transition-opacity md:opacity-0 group-hover:opacity-100 hover:bg-white/10 rounded-lg text-slate-400 hover:text-primary"
+                                                        title="Edit Item Details"
+                                                    >
+                                                        <Edit2 size={18} />
+                                                    </button>
+                                                    <button
+                                                        onClick={() => handleDelete(item.id, item.name)}
+                                                        className="p-2 transition-opacity md:opacity-0 group-hover:opacity-100 hover:bg-rose-500/10 rounded-lg text-slate-400 hover:text-rose-500"
+                                                        title="Delete Item"
+                                                    >
+                                                        <Trash2 size={18} />
+                                                    </button>
+                                                </div>
                                             </td>
                                         </tr>
                                     ))}
@@ -331,6 +415,161 @@ export default function InventoryPage() {
                     </div>
                 )}
             </div>
+
+            {/* Modal: Edit Inventory Item */}
+            {editingItem && (
+                <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+                    <div className="premium-card max-w-lg w-full p-6 animate-in zoom-in-95 duration-200 max-h-[90vh] flex flex-col">
+                        <div className="flex items-center justify-between mb-4 pb-3 border-b border-white/10 flex-shrink-0">
+                            <div className="flex items-center gap-2.5">
+                                <div className="p-2 rounded-xl bg-primary/10 text-primary border border-primary/20">
+                                    <Edit2 size={20} />
+                                </div>
+                                <div>
+                                    <h2 className="text-lg font-bold text-slate-100">Edit Item Details</h2>
+                                    <p className="text-xs text-slate-400 font-mono">ID: {editingItem.id.slice(0, 8)}...</p>
+                                </div>
+                            </div>
+                            <button
+                                onClick={() => setEditingItem(null)}
+                                className="p-1 hover:bg-white/10 rounded-lg text-slate-400 hover:text-white transition-colors"
+                            >
+                                <X size={20} />
+                            </button>
+                        </div>
+
+                        {/* Read-only Stock Info Pill */}
+                        <div className="p-3 mb-4 bg-white/5 rounded-xl flex items-center justify-between text-xs text-slate-300 border border-white/5 flex-shrink-0">
+                            <span className="text-slate-400">Current Stock in Inventory:</span>
+                            <span className="font-bold text-sm text-emerald-400">
+                                {editingItem.quantity} {editingItem.unit_of_measure || "pcs"}
+                            </span>
+                        </div>
+
+                        <form onSubmit={handleSaveEdit} className="space-y-4 overflow-y-auto flex-1 pr-1">
+                            {/* Item Name */}
+                            <div className="space-y-1.5">
+                                <label className="text-xs font-semibold text-slate-300 uppercase tracking-wider">Item Name *</label>
+                                <input
+                                    type="text"
+                                    required
+                                    placeholder="Enter item name..."
+                                    className="w-full input-field text-sm"
+                                    value={editName}
+                                    onChange={(e) => setEditName(e.target.value)}
+                                />
+                            </div>
+
+                            {/* Barcode and SKU Grid */}
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                <div className="space-y-1.5">
+                                    <label className="text-xs font-semibold text-slate-300 uppercase tracking-wider">Barcode *</label>
+                                    <input
+                                        type="text"
+                                        required
+                                        placeholder="Barcode string..."
+                                        className="w-full input-field font-mono text-sm text-primary font-bold"
+                                        value={editBarcode}
+                                        onChange={(e) => setEditBarcode(e.target.value)}
+                                    />
+                                </div>
+                                <div className="space-y-1.5">
+                                    <label className="text-xs font-semibold text-slate-300 uppercase tracking-wider">SKU / Code</label>
+                                    <input
+                                        type="text"
+                                        placeholder="Optional SKU..."
+                                        className="w-full input-field font-mono text-sm"
+                                        value={editSku}
+                                        onChange={(e) => setEditSku(e.target.value)}
+                                    />
+                                </div>
+                            </div>
+
+                            {/* Category & Unit of Measure */}
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                <div className="space-y-1.5">
+                                    <label className="text-xs font-semibold text-slate-300 uppercase tracking-wider">Category</label>
+                                    <div className="relative">
+                                        <select
+                                            className="w-full input-field appearance-none pr-8 text-sm"
+                                            value={editCategoryId}
+                                            onChange={(e) => setEditCategoryId(e.target.value)}
+                                        >
+                                            <option value="NONE">Uncategorized</option>
+                                            {categories.map((c) => (
+                                                <option key={c.id} value={c.id}>{c.name}</option>
+                                            ))}
+                                        </select>
+                                        <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none" size={16} />
+                                    </div>
+                                </div>
+
+                                <div className="space-y-1.5">
+                                    <label className="text-xs font-semibold text-slate-300 uppercase tracking-wider">Unit of Measure</label>
+                                    <input
+                                        type="text"
+                                        placeholder="e.g. pcs, box, kg, meters"
+                                        className="w-full input-field text-sm"
+                                        value={editUnitOfMeasure}
+                                        onChange={(e) => setEditUnitOfMeasure(e.target.value)}
+                                    />
+                                </div>
+                            </div>
+
+                            {/* Quick Unit Presets */}
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                                <span className="text-[11px] text-slate-500 mr-1">Presets:</span>
+                                {["pcs", "box", "kg", "meters", "roll", "set", "pack"].map((preset) => (
+                                    <button
+                                        key={preset}
+                                        type="button"
+                                        onClick={() => setEditUnitOfMeasure(preset)}
+                                        className={`text-[11px] px-2 py-0.5 rounded-md border transition-all ${editUnitOfMeasure.toLowerCase() === preset ? 'bg-primary/20 text-primary border-primary/40 font-semibold' : 'bg-white/5 text-slate-400 border-white/10 hover:bg-white/10 hover:text-slate-200'}`}
+                                    >
+                                        {preset}
+                                    </button>
+                                ))}
+                            </div>
+
+                            {/* Description */}
+                            <div className="space-y-1.5">
+                                <label className="text-xs font-semibold text-slate-300 uppercase tracking-wider">Description</label>
+                                <textarea
+                                    rows={3}
+                                    placeholder="Optional item specifications, notes or description..."
+                                    className="w-full input-field resize-none text-sm"
+                                    value={editDescription}
+                                    onChange={(e) => setEditDescription(e.target.value)}
+                                />
+                            </div>
+
+                            {editError && (
+                                <div className="p-3 rounded-xl bg-rose-500/10 text-rose-400 border border-rose-500/20 text-xs flex items-center gap-2">
+                                    <AlertCircle size={16} className="flex-shrink-0" />
+                                    <span>{editError}</span>
+                                </div>
+                            )}
+
+                            <div className="flex items-center gap-3 pt-3 border-t border-white/10 flex-shrink-0">
+                                <button
+                                    type="button"
+                                    onClick={() => setEditingItem(null)}
+                                    className="flex-1 px-4 py-2.5 rounded-xl border border-white/10 text-slate-400 hover:text-white font-medium text-sm transition-colors"
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    type="submit"
+                                    disabled={editSubmitting}
+                                    className="flex-1 btn-primary py-2.5 rounded-xl font-semibold text-sm flex items-center justify-center gap-2"
+                                >
+                                    {editSubmitting ? <Loader2 className="animate-spin" size={18} /> : "Save Changes"}
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            )}
 
             {/* Modal: Quick Inbound / Outbound Operation */}
             {quickOpModal && (
